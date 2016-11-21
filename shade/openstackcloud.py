@@ -1366,8 +1366,10 @@ class OpenStackCloud(_normalize.Normalizer):
         )
         return _utils._filter_list(groups, name_or_id, filters)
 
-    def search_servers(self, name_or_id=None, filters=None, detailed=False):
-        servers = self.list_servers(detailed=detailed)
+    def search_servers(self, name_or_id=None, filters=None, detailed=False,
+                       search_opts=None):
+
+        servers = self.list_servers(detailed=detailed, search_opts=search_opts)
         return _utils._filter_list(servers, name_or_id, filters)
 
     def search_server_groups(self, name_or_id=None, filters=None):
@@ -1609,7 +1611,7 @@ class OpenStackCloud(_normalize.Normalizer):
                     _tasks.NovaSecurityGroupList(search_opts=filters))
         return self._normalize_secgroups(groups)
 
-    def list_servers(self, detailed=False):
+    def list_servers(self, detailed=False, search_opts=None):
         """List all available servers.
 
         :returns: A list of server ``munch.Munch``.
@@ -1627,19 +1629,19 @@ class OpenStackCloud(_normalize.Normalizer):
             if self._servers_lock.acquire(first_run):
                 try:
                     if not (first_run and self._servers is not None):
-                        self._servers = self._list_servers(detailed=detailed)
+                        self._servers = self._list_servers(detailed=detailed, search_opts=search_opts)
                         self._servers_time = time.time()
                 finally:
                     self._servers_lock.release()
         return self._servers
 
-    def _list_servers(self, detailed=False):
+    def _list_servers(self, detailed=False, search_opts=None):
         with _utils.shade_exceptions(
                 "Error fetching server list on {cloud}:{region}:".format(
                     cloud=self.name,
                     region=self.region_name)):
             servers = self._normalize_servers(
-                self.manager.submit_task(_tasks.ServerList()))
+                self.manager.submit_task(_tasks.ServerList(search_opts=search_opts)))
 
             if detailed:
                 return [
